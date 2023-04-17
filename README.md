@@ -17,3 +17,5 @@
 与 \\wsl$\distro\home\$USER\.gitconfig) 。 可以配置 WSL，以便 GCM 将使用 WSL Git 配置，但这意味着代理设置
 对于特定 WSL 安装是唯一的，不会与他人或 Windows 主机共享。
 ```	
+
+3
