@@ -9,18 +9,25 @@ import (
 	"time"
 )
 
+const (
+	MINING_DIFFICULTY = 3
+	MINING_SENDER     = "THE BLOCKCHAIN"
+	MINING_REWARD     = 1.0
+)
+
 type Block struct {
+	timestamp    int64
 	nonce        int
 	previousHash [32]byte
-	timestamp    int64
-	transactions []string
+	transactions []*Transaction
 }
 
-func NewBlock(nonce int, previousHash [32]byte) *Block {
+func NewBlock(nonce int, previousHash [32]byte, transactions []*Transaction) *Block {
 	b := new(Block)
 	b.timestamp = time.Now().UnixNano()
 	b.nonce = nonce
 	b.previousHash = previousHash
+	b.transactions = transactions
 	return b
 }
 
@@ -28,7 +35,9 @@ func (b *Block) Print() {
 	fmt.Printf("timestamp       %d\n", b.timestamp)
 	fmt.Printf("nonce           %d\n", b.nonce)
 	fmt.Printf("previous_hash   %x\n", b.previousHash)
-	fmt.Printf("transactions    %s\n", b.transactions)
+	for _, t := range b.transactions {
+		t.Print()
+	}
 }
 
 func (b *Block) Hash() [32]byte {
@@ -38,10 +47,10 @@ func (b *Block) Hash() [32]byte {
 
 func (b *Block) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Timestamp    int64    `json:"timestamp"`
-		Nonce        int      `json:"nonce"`
-		PreviousHash [32]byte `json:"previous_hash"`
-		Transactions []string `json:"transactions"`
+		Timestamp    int64          `json:"timestamp"`
+		Nonce        int            `json:"nonce"`
+		PreviousHash [32]byte       `json:"previous_hash"`
+		Transactions []*Transaction `json:"transactions"`
 	}{
 		Timestamp:    b.timestamp,
 		Nonce:        b.nonce,
@@ -51,11 +60,13 @@ func (b *Block) MarshalJSON() ([]byte, error) {
 }
 
 type Blockchain struct {
-	transactionPool []*Transaction
-	chain           []*Block
+	transactionPool   []*Transaction
+	chain             []*Block
+	blockchainAddress string
 }
 
-func NewBlockchain() *Blockchain {
+// 自己改了
+func NewBlockchain(blockchainAddress string) *Blockchain {
 	b := &Block{}
 	pHashStr := "Genesis Block"
 	var pHash [32]byte
@@ -64,13 +75,15 @@ func NewBlockchain() *Blockchain {
 	b.timestamp = time.Now().UnixNano()
 	b.previousHash = pHash
 	bc := new(Blockchain)
+	bc.blockchainAddress = blockchainAddress
 	bc.CreateBlock(0, b.Hash())
 	return bc
 }
 
 func (bc *Blockchain) CreateBlock(nonce int, previousHash [32]byte) *Block {
-	b := NewBlock(nonce, previousHash)
+	b := NewBlock(nonce, previousHash, bc.transactionPool)
 	bc.chain = append(bc.chain, b)
+	bc.transactionPool = []*Transaction{}
 	return b
 }
 
@@ -95,6 +108,67 @@ func (bc *Blockchain) Print() {
 func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32) {
 	t := NewTransaction(sender, recipient, value)
 	bc.transactionPool = append(bc.transactionPool, t)
+}
+
+// 这个不需要线程锁定么？
+func (bc *Blockchain) CopyTransactionPool() []*Transaction {
+	transactions := make([]*Transaction, 0)
+	for _, t := range bc.transactionPool {
+		transactions = append(transactions,
+			NewTransaction(t.senderBlockchainAddress,
+				t.recipientBlockchainAddress,
+				t.value))
+	}
+	return transactions
+}
+
+func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*Transaction, difficulty int) bool {
+	zeros := strings.Repeat("0", difficulty)
+	//guessBlock里面timestamp是0，跟最终add的block不一致，hash也不一样
+	guessBlock := Block{0, nonce, previousHash, transactions}
+	guessHashStr := fmt.Sprintf("%x", guessBlock.Hash())
+
+	if guessHashStr[:difficulty] == zeros {
+		fmt.Printf("guessHashStr : [%s] nonce: [%d] \n", guessHashStr, nonce)
+	}
+	return guessHashStr[:difficulty] == zeros
+}
+
+func (bc *Blockchain) ProofOfWork() int {
+	transactions := bc.CopyTransactionPool()
+	previousHash := bc.LastBlock().Hash()
+	nonce := 0 // 其实等于几都无所谓
+	for !bc.ValidProof(nonce, previousHash, transactions, MINING_DIFFICULTY) {
+
+		nonce += 1
+	}
+	return nonce
+}
+
+func (bc *Blockchain) Mining() bool {
+	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD) //加到Transaction列表最后去了？
+	nonce := bc.ProofOfWork()
+	previousHash := bc.LastBlock().Hash()
+	bc.CreateBlock(nonce, previousHash)
+	log.Println("action=mining, status=success")
+	return true
+}
+
+func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
+	var totalAmount float32 = 0.0
+	for _, b := range bc.chain {
+		for _, t := range b.transactions {
+			value := t.value
+			if blockchainAddress == t.recipientBlockchainAddress {
+				totalAmount += value
+			}
+
+			if blockchainAddress == t.senderBlockchainAddress {
+				totalAmount -= value
+			}
+		}
+	}
+	return totalAmount
 }
 
 type Transaction struct {
@@ -131,24 +205,22 @@ func init() {
 }
 
 func main() {
-	blockChain := NewBlockchain()
+	myBlockchainAddress := "my_blockchain_address"
 
-	i := 1
+	blockChain := NewBlockchain(myBlockchainAddress)
+
 	blockChain.AddTransaction("A", "B", 1.0)
-	previousHash := blockChain.LastBlock().Hash()
-	blockChain.CreateBlock(i, previousHash)
-
+	blockChain.Mining()
 	blockChain.AddTransaction("C", "D", 2.0)
 	blockChain.AddTransaction("X", "Y", 3.0)
-	i++
-	previousHash = blockChain.LastBlock().Hash()
-	blockChain.CreateBlock(i, previousHash)
-
-	i++
+	blockChain.Mining()
 	blockChain.AddTransaction("C2", "D2", 2.4)
 	blockChain.AddTransaction("X2", "Y2", 3.6)
-	previousHash = blockChain.LastBlock().Hash()
-	blockChain.CreateBlock(i, previousHash)
+	blockChain.Mining()
 	blockChain.Print()
+
+	fmt.Printf("my %.1f\n", blockChain.CalculateTotalAmount("my_blockchain_address"))
+	fmt.Printf("C %.1f\n", blockChain.CalculateTotalAmount("C"))
+	fmt.Printf("D %.1f\n", blockChain.CalculateTotalAmount("D"))
 
 }
