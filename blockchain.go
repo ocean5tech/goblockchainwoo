@@ -15,6 +15,8 @@ const (
 	MINING_REWARD     = 1.0
 )
 
+// ToDo 这里没有Hight值，没法顺着prevhash去verify吧？
+// ToDo 没有Merkle值
 type Block struct {
 	timestamp    int64
 	nonce        int
@@ -110,7 +112,7 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 	bc.transactionPool = append(bc.transactionPool, t)
 }
 
-// 这个不需要线程锁定么？
+// ToDo 这个不需要线程锁定么？
 func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	transactions := make([]*Transaction, 0)
 	for _, t := range bc.transactionPool {
