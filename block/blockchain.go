@@ -1,12 +1,15 @@
 package block
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/ocean5tech/goblockchainwoo/utils"
 )
 
 const (
@@ -15,8 +18,6 @@ const (
 	MINING_REWARD     = 1.0
 )
 
-// ToDo 这里没有Hight值，没法顺着prevhash去verify吧？
-// ToDo 没有Merkle值
 type Block struct {
 	timestamp    int64
 	nonce        int
@@ -67,15 +68,8 @@ type Blockchain struct {
 	blockchainAddress string
 }
 
-// 自己改了
 func NewBlockchain(blockchainAddress string) *Blockchain {
 	b := &Block{}
-	pHashStr := "Genesis Block"
-	var pHash [32]byte
-	copy(pHash[:], []byte(pHashStr))
-	b.nonce = 0
-	b.timestamp = time.Now().UnixNano()
-	b.previousHash = pHash
 	bc := new(Blockchain)
 	bc.blockchainAddress = blockchainAddress
 	bc.CreateBlock(0, b.Hash())
@@ -94,25 +88,46 @@ func (bc *Blockchain) LastBlock() *Block {
 }
 
 func (bc *Blockchain) Print() {
-	fmt.Printf("%s TXPool %s\n", strings.Repeat("=", 25), strings.Repeat("=", 25))
-	for i, v := range bc.transactionPool {
-		fmt.Printf("Transaction #%d, info:\n", i)
-		v.Print()
-	}
 	for i, block := range bc.chain {
-		fmt.Printf("%s Block #%d %s\n", strings.Repeat("=", 25), i,
+		fmt.Printf("%s Chain %d %s\n", strings.Repeat("=", 25), i,
 			strings.Repeat("=", 25))
 		block.Print()
 	}
 	fmt.Printf("%s\n", strings.Repeat("*", 25))
 }
 
-func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32) {
+func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32,
+	senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	t := NewTransaction(sender, recipient, value)
-	bc.transactionPool = append(bc.transactionPool, t)
+
+	if sender == MINING_SENDER {
+		bc.transactionPool = append(bc.transactionPool, t)
+		return true
+	}
+
+	if bc.VerifyTransactionSignature(senderPublicKey, s, t) {
+		/*
+			if bc.CalculateTotalAmount(sender) < value {
+				log.Println("ERROR: Not enough balance in a wallet")
+				return false
+			}
+		*/
+		bc.transactionPool = append(bc.transactionPool, t)
+		return true
+	} else {
+		log.Println("ERROR: Verify Transaction")
+	}
+	return false
+
 }
 
-// ToDo 这个不需要线程锁定么？
+func (bc *Blockchain) VerifyTransactionSignature(
+	senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transaction) bool {
+	m, _ := json.Marshal(t)
+	h := sha256.Sum256([]byte(m))
+	return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
+}
+
 func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	transactions := make([]*Transaction, 0)
 	for _, t := range bc.transactionPool {
@@ -126,29 +141,23 @@ func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 
 func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*Transaction, difficulty int) bool {
 	zeros := strings.Repeat("0", difficulty)
-	//guessBlock里面timestamp是0，跟最终add的block不一致，hash也不一样
 	guessBlock := Block{0, nonce, previousHash, transactions}
 	guessHashStr := fmt.Sprintf("%x", guessBlock.Hash())
-
-	if guessHashStr[:difficulty] == zeros {
-		fmt.Printf("guessHashStr : [%s] nonce: [%d] \n", guessHashStr, nonce)
-	}
 	return guessHashStr[:difficulty] == zeros
 }
 
 func (bc *Blockchain) ProofOfWork() int {
 	transactions := bc.CopyTransactionPool()
 	previousHash := bc.LastBlock().Hash()
-	nonce := 0 // 其实等于几都无所谓
+	nonce := 0
 	for !bc.ValidProof(nonce, previousHash, transactions, MINING_DIFFICULTY) {
-
 		nonce += 1
 	}
 	return nonce
 }
 
 func (bc *Blockchain) Mining() bool {
-	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD) //加到Transaction列表最后去了？
+	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
 	nonce := bc.ProofOfWork()
 	previousHash := bc.LastBlock().Hash()
 	bc.CreateBlock(nonce, previousHash)
@@ -187,7 +196,7 @@ func (t *Transaction) Print() {
 	fmt.Printf("%s\n", strings.Repeat("-", 40))
 	fmt.Printf(" sender_blockchain_address      %s\n", t.senderBlockchainAddress)
 	fmt.Printf(" recipient_blockchain_address   %s\n", t.recipientBlockchainAddress)
-	fmt.Printf(" value                          %.2f\n", t.value)
+	fmt.Printf(" value                          %.1f\n", t.value)
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
@@ -200,29 +209,4 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		Recipient: t.recipientBlockchainAddress,
 		Value:     t.value,
 	})
-}
-
-func init() {
-	log.SetPrefix("Blockchain: ")
-}
-
-func main() {
-	myBlockchainAddress := "my_blockchain_address"
-
-	blockChain := NewBlockchain(myBlockchainAddress)
-
-	blockChain.AddTransaction("A", "B", 1.0)
-	blockChain.Mining()
-	blockChain.AddTransaction("C", "D", 2.0)
-	blockChain.AddTransaction("X", "Y", 3.0)
-	blockChain.Mining()
-	blockChain.AddTransaction("C2", "D2", 2.4)
-	blockChain.AddTransaction("X2", "Y2", 3.6)
-	blockChain.Mining()
-	blockChain.Print()
-
-	fmt.Printf("my %.1f\n", blockChain.CalculateTotalAmount("my_blockchain_address"))
-	fmt.Printf("C %.1f\n", blockChain.CalculateTotalAmount("C"))
-	fmt.Printf("D %.1f\n", blockChain.CalculateTotalAmount("D"))
-
 }
