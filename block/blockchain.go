@@ -118,14 +118,15 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 		log.Println("ERROR: Verify Transaction")
 	}
 	return false
-
 }
 
 func (bc *Blockchain) VerifyTransactionSignature(
 	senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transaction) bool {
 	m, _ := json.Marshal(t)
 	h := sha256.Sum256([]byte(m))
-	return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
+
+	// return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
+	return ecdsa.VerifyASN1(senderPublicKey, h[:], []byte(s.String()))
 }
 
 func (bc *Blockchain) CopyTransactionPool() []*Transaction {
