@@ -19,3 +19,20 @@
 ```	
 
 3
+func (bc *Blockchain) VerifyTransactionSignature(
+	senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transaction) bool {
+	m, _ := json.Marshal(t)
+	h := sha256.Sum256([]byte(m))
+
+	// return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
+	return ecdsa.VerifyASN1(senderPublicKey, h[:], []byte(s.String()))
+}
+
+"github.com/ocean5tech/goblockchainwoo/utils"
+
+4.
+
+声明一个Struct，所有属性都私有
+声明一个NewFunc
+声明属性的GetFunc
+声明工具Func
