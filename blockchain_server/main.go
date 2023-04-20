@@ -1,3 +1,4 @@
+// package main - blockchain_server的启动入口
 package main
 
 import (
@@ -5,6 +6,7 @@ import (
 	"log"
 )
 
+// Log前缀设定
 func init() {
 	log.SetPrefix("Blockchain: ")
 }

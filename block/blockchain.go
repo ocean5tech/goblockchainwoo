@@ -163,6 +163,7 @@ func (bc *Blockchain) ClearTransactionPool() {
 	bc.transactionPool = bc.transactionPool[:0]
 }
 
+// FIXME : 这个MarshalJSON需要验证，返回的是指针数组，怎么序列化的？
 func (bc *Blockchain) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Blocks []*Block `json:"chain"`
@@ -214,6 +215,7 @@ func (bc *Blockchain) CreateTransaction(sender string, recipient string, value f
 	senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	isTransacted := bc.AddTransaction(sender, recipient, value, senderPublicKey, s)
 
+	//把这个transaction广播到网络中去，然后让每个node都写同样的transaction
 	if isTransacted {
 		for _, n := range bc.neighbors {
 			publicKeyStr := fmt.Sprintf("%064x%064x", senderPublicKey.X.Bytes(),
@@ -390,6 +392,7 @@ func (bc *Blockchain) ResolveConflicts() bool {
 	return false
 }
 
+// 已经上链的Transaction
 type Transaction struct {
 	senderBlockchainAddress    string
 	recipientBlockchainAddress string
@@ -435,6 +438,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// 没上链的Transaction
 type TransactionRequest struct {
 	SenderBlockchainAddress    *string  `json:"sender_blockchain_address"`
 	RecipientBlockchainAddress *string  `json:"recipient_blockchain_address"`
