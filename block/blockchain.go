@@ -22,6 +22,7 @@ const (
 	MINING_REWARD     = 1.0
 	MINING_TIMER_SEC  = 20
 
+	//TODO 实际的Node列表是怎么管理的？在做共识的时候怎么广播？
 	BLOCKCHAIN_PORT_RANGE_START      = 5000
 	BLOCKCHAIN_PORT_RANGE_END        = 5003
 	NEIGHBOR_IP_RANGE_START          = 0
@@ -29,6 +30,8 @@ const (
 	BLOCKCHIN_NEIGHBOR_SYNC_TIME_SEC = 20
 )
 
+// TODO 没有Height，没有Merkel，没有Version和Bits
+// TODO 没有storage，应该把header留在内存，Transaction写在硬盘
 type Block struct {
 	timestamp    int64
 	nonce        int
@@ -71,6 +74,7 @@ func (b *Block) Hash() [32]byte {
 	return sha256.Sum256([]byte(m))
 }
 
+// TODO 实现Protobuf方式序列化及反序列化
 func (b *Block) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Timestamp    int64          `json:"timestamp"`
@@ -130,6 +134,7 @@ func (bc *Blockchain) Chain() []*Block {
 	return bc.chain
 }
 
+// 所有的定期作业开始跑
 func (bc *Blockchain) Run() {
 	bc.StartSyncNeighbors()
 	bc.ResolveConflicts()
@@ -362,6 +367,8 @@ func (bc *Blockchain) ValidChain(chain []*Block) bool {
 	return true
 }
 
+// 区块链共识算法,遍历当前节点的所有邻居节点,邻居节点的链是否比当前节点的链更长，
+// 并且它也是有效的。如果是，则将邻居节点的链设为最新的区块链数据
 func (bc *Blockchain) ResolveConflicts() bool {
 	var longestChain []*Block = nil
 	maxLength := len(bc.chain)

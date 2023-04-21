@@ -173,6 +173,7 @@ func (bcs *BlockchainServer) Mine(w http.ResponseWriter, req *http.Request) {
 }
 
 // 开始轮询Mine
+// http.HandleFunc("/mine/start", bcs.StartMine)
 func (bcs *BlockchainServer) StartMine(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -188,6 +189,7 @@ func (bcs *BlockchainServer) StartMine(w http.ResponseWriter, req *http.Request)
 	}
 }
 
+// http.HandleFunc("/amount", bcs.Amount)
 func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -206,6 +208,8 @@ func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// TODO 取得共识，实际是怎么广播的？
+// http.HandleFunc("/consensus", bcs.Consensus)
 func (bcs *BlockchainServer) Consensus(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPut:
@@ -225,6 +229,7 @@ func (bcs *BlockchainServer) Consensus(w http.ResponseWriter, req *http.Request)
 }
 
 func (bcs *BlockchainServer) Run() {
+	//一个server中可以运行多个chain？
 	bcs.GetBlockchain().Run()
 
 	http.HandleFunc("/", bcs.GetChain)

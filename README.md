@@ -38,6 +38,13 @@
 	```
 	- 字符串转换的方法：fmt.Sprintf , strconv, string()
 	  - fmt.Sprintf 用于格式化字符串
+	```
+	PreviousHash: fmt.Sprintf("%x", b.previousHash),
+	```
+	```
+	ph, _ := hex.DecodeString(*v.PreviousHash)
+	copy(b.previousHash[:], ph[:32])
+	```
 	  - strconv可以让其他基本类型与字符串互转 
 	```
 	  // str to int
@@ -79,7 +86,44 @@
 		>类似地，在 Block 结构体的 MarshalJSON() 方法中，也需要创建一个匿名结构体，将该结构体中的各个字段赋值为 Block 对象中对应的>字段，并使用 json.Marshal() 函数将该结构体序列化为 JSON 对象。
 		>同样地，在 Transaction 结构体的 MarshalJSON() 方法中，需要创建一个匿名结构体，并将该结构体中的各个字段赋值为 Transaction >对象中对应的字段。
 		>完成上述实现后，可以调用 json.Marshal() 函数将 Blockchain 对象序列化为 JSON 字符串。在序列化过程中，Go 编译器会自动调用每个对象的 MarshalJSON() 方法，将其转换为对应的 JSON 对象。
-
+	    >需要序列化的要写出MarshalJSON和UnmarshalJSON func
+	```
+	func (b *Block) MarshalJSON() ([]byte, error) {
+		return json.Marshal(struct {
+			Timestamp    int64          `json:"timestamp"`
+			Nonce        int            `json:"nonce"`
+			PreviousHash string         `json:"previous_hash"`
+			Transactions []*Transaction `json:"transactions"`
+		}{
+			Timestamp:    b.timestamp,
+			Nonce:        b.nonce,
+			PreviousHash: fmt.Sprintf("%x", b.previousHash),
+			Transactions: b.transactions,
+		})
+	}
+	```
+	```
+	func (b *Block) UnmarshalJSON(data []byte) error {
+		var previousHash string
+		v := &struct {
+			Timestamp    *int64          `json:"timestamp"`
+			Nonce        *int            `json:"nonce"`
+			PreviousHash *string         `json:"previous_hash"`
+			Transactions *[]*Transaction `json:"transactions"`
+		}{
+			Timestamp:    &b.timestamp,
+			Nonce:        &b.nonce,
+			PreviousHash: &previousHash,
+			Transactions: &b.transactions,
+		}
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		ph, _ := hex.DecodeString(*v.PreviousHash)
+		copy(b.previousHash[:], ph[:32])
+		return nil
+	}
+	```
 	- 序列化实践2：decoder.Decode()和json.Unmarshal()
 
 		>都是用来将JSON数据反序列化为Go语言结构体对象的方法。不同之处在于它们接收的输入参数不同。
@@ -126,6 +170,15 @@
 		fmt.Fprintf(w, "Email: %s\n", requestBody.Email)
 	}
 	```
+	- 序列化实践3：哈希值属于16进制编码
+	```
+	fmt.Sprintf("%x", b.previousHash)
+	```
+	```
+	ph, _ := hex.DecodeString(*v.PreviousHash)
+	copy(b.previousHash[:], ph[:32])
+	```
+
 	- 定时操作: 过一定秒数，再启动自身，另外在bc.Mining()中有互斥锁来确保在挖矿时
 	只有一个 goroutine 能够访问区块链
 
@@ -141,6 +194,56 @@
 		defer bc.mux.Unlock()
 	```
 
+	- 带参数发送Get请求：
+	```
+	//客户端	
+	client := &http.Client{}
+	bcsReq, _ := http.NewRequest("GET", endpoint, nil)
+	q := bcsReq.URL.Query()
+	q.Add("blockchain_address", blockchainAddress)
+	bcsReq.URL.RawQuery = q.Encode()
+	bcsResp, err := client.Do(bcsReq)
+	```
+	```
+	//服务端
+	func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
+		switch req.Method {
+		case http.MethodGet:
+			blockchainAddress := req.URL.Query().Get("blockchain_address")
+			amount := bcs.GetBlockchain().CalculateTotalAmount(blockchainAddress)
+
+			ar := &block.AmountResponse{Amount: amount}
+			m, _ := ar.MarshalJSON()
+
+			w.Header().Add("Content-Type", "application/json")
+			io.WriteString(w, string(m[:]))
+
+		default:
+			log.Printf("ERROR: Invalid HTTP Method")
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}
+
+	```
+	- OOP实践
+	  - 建立一个结构体，每个属性都是私有属性，然后写出GetFunc
+	  - 实现一个NewFunc，用来返回这个结构的指针，NewFunc不属于该结构体
+	  - 实体类应该写出Print() func
+	```
+	  func (b *Block) Print() {
+			fmt.Printf("timestamp       %d\n", b.timestamp)
+			fmt.Printf("nonce           %d\n", b.nonce)
+			fmt.Printf("previous_hash   %x\n", b.previousHash)
+			for _, t := range b.transactions {
+				t.Print()
+			}
+		}
+	```
+	  - 序列化操作参见上面
+	  - 该结构体如果包含读写操作，考虑在属性中包含锁，sync.Mutex
+	  - 复杂结构都用指针数组，不用实体
+
+	- FindNeighbors
 4. TODO List
 5. 参考连接
 
