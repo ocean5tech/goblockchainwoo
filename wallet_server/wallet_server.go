@@ -35,6 +35,7 @@ func (ws *WalletServer) Gateway() string {
 	return ws.gateway
 }
 
+// http.HandleFunc("/", ws.Index)
 func (ws *WalletServer) Index(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -45,6 +46,7 @@ func (ws *WalletServer) Index(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// http.HandleFunc("/wallet", ws.Wallet)
 func (ws *WalletServer) Wallet(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
@@ -58,6 +60,7 @@ func (ws *WalletServer) Wallet(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// http.HandleFunc("/transaction", ws.CreateTransaction)
 func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
@@ -96,7 +99,8 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 			SenderBlockchainAddress:    t.SenderBlockchainAddress,
 			RecipientBlockchainAddress: t.RecipientBlockchainAddress,
 			SenderPublicKey:            t.SenderPublicKey,
-			Value:                      &value32, Signature: &signatureStr,
+			Value:                      &value32,
+			Signature:                  &signatureStr,
 		}
 		m, _ := json.Marshal(bt)
 		buf := bytes.NewBuffer(m)

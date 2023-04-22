@@ -13,6 +13,7 @@ type Signature struct {
 	S *big.Int
 }
 
+// TODO 这是啥SKill
 func (s *Signature) String() string {
 	return fmt.Sprintf("%064x%064x", s.R, s.S)
 }

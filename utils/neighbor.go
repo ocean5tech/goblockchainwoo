@@ -22,6 +22,7 @@ func IsFoundHost(host string, port uint16) bool {
 
 var PATTERN = regexp.MustCompile(`((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.){3})(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)`)
 
+// TODO 真正的广播和发现Neighbor怎么做的
 func FindNeighbors(myHost string, myPort uint16, startIp uint8, endIp uint8, startPort uint16, endPort uint16) []string {
 	address := fmt.Sprintf("%s:%d", myHost, myPort)
 
@@ -54,5 +55,6 @@ func GetHost() string {
 	if err != nil {
 		return "127.0.0.1"
 	}
-	return address[0]
+	//return address[0]
+	return address[2] // 跳过前面的ipv6,取得ipv4
 }

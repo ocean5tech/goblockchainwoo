@@ -18,9 +18,9 @@ clearb:
 	cls && echo -------------START BUILD-------------
 gethost:
 	cd cmd && $(GOBUILD) -o ../bin/$(CMD_NAME).exe -v && cd ..
-# gethostrun:
+grun:
 # 	cd cmd && $(GOBUILD) -o ../bin/$(CMD_NAME).exe -v && cd ..
-# 	./bin/$(CMD_NAME).exe
+	./bin/$(CMD_NAME).exe
 bc:
 	cd blockchain_server && $(GOBUILD) -o ../bin/$(BINARY_NAME).exe -v && cd ..
 # bcrun:
