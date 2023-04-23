@@ -1,5 +1,14 @@
 package test
 
+import (
+	"log"
+	"testing"
+
+	"github.com/ocean5tech/goblockchainwoo/block"
+	"github.com/ocean5tech/goblockchainwoo/utils"
+	"github.com/stretchr/testify/assert"
+)
+
 // 1. log
 // 2. console
 // 3. gethost
@@ -14,3 +23,14 @@ package test
 // case5: / 来getchain
 // case6: 间隔30秒 ：A to B 1.4, B to C 2.5, C to D 4.6, D to A 2.7
 // case7: 间隔30秒 ：Amount A B C D
+
+func TestBlockChain(t *testing.T) {
+	hostIp := utils.GetHost()
+	assert.NotEmpty(t, hostIp)
+
+	startPort := block.BLOCKCHAIN_PORT_RANGE_START
+	endPort := block.BLOCKCHAIN_PORT_RANGE_END
+	for port := startPort; port <= endPort; port += 1 {
+		log.Println(port)
+	}
+}
